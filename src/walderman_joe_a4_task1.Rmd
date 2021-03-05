@@ -1,0 +1,67 @@
+---
+title: "Agglomerative Hierarchical Clustering"
+author: "Joe Walderman"
+date: "3/4/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(here)
+library(janitor)
+library(naniar)
+
+# Packages for cluster analysis
+library(cluster)
+library(NbClust)
+library(factoextra)
+library(dendextend)
+library(ggdendro)
+```
+
+```{r}
+stream <- read_csv(here("data", "steam_chemistry.csv")) %>% 
+  clean_names()
+
+stream[stream == -999.0] <- NA # replacing -999 values with NA
+```
+
+```{r}
+avg_site <- stream %>%
+  rowwise() %>% 
+  mutate(summary = mean(c_across(nh4_u_m:spec_cond_u_spercm), na.rm = TRUE)) %>% 
+  select(site_code, summary) %>% 
+  group_by(site_code) %>% 
+  summarize(mean = mean(summary))
+
+stream_scaled <- avg_site %>% 
+  select(mean) %>% 
+  scale()
+
+# Add site code rownames to scaled dataset
+rownames(stream_scaled) <- avg_site$site_code
+
+# Calculate euclidean distance
+euc_distance <- dist(stream_scaled, method = "euclidean")
+
+# Hierarchical clustering with complete linkage
+hc_complete <- hclust(euc_distance, method = "complete")
+
+# Base plot
+plot(hc_complete, cex = 0.6, hang = -1)
+```
+
+### Dendrogram from Stream Site Cluster Analysis
+```{r}
+ggdendrogram(hc_complete,
+             rotate = TRUE) +
+  theme_minimal() +
+  labs(x = "Site",
+       y = " ",
+       title = "Multivariate Clustering of Stream Chemistry")
+```
+
+**Figure 1** Dendrogram...
+
+
