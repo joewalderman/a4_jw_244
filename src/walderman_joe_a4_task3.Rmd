@@ -1,0 +1,95 @@
+---
+title: "Bootstrapped Confidence Interval for Proportions"
+author: "Joe Walderman"
+date: "3/5/2021"
+output: 
+  html_document:
+    theme: lumen
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(here)
+library(boot)
+library(gt)
+library(broom)
+```
+
+## Bootstrapped Analsis of Exclusion, Hostility, and Intimidation Experience at UCSB
+
+```{r}
+# Make vector of community member responses, 1 being yes and 0 being no
+survey <- c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1)
+
+# Function for proportion calculation by summing all responses and dividing by total quantity 
+proportion <- function(x,i){sum(x[i])/36}
+
+# Bootstrap 100,000 samples
+boot_100k <- boot(survey,
+                  statistic = proportion,
+                  R = 100000)
+
+boot_tidy <- tidy(boot_100k)
+
+# Make a data frame
+survey_df <- data.frame(proport = boot_100k$t)
+
+# Plot it
+ggplot(data = survey_df, aes(x = proport)) +
+  geom_histogram() +
+  theme_minimal() +
+  labs(x = "Proportion", 
+       y = "Count")
+  
+```
+
+```{r}
+# Confidence internval
+ci <- boot.ci(boot_100k, conf = 0.95)
+
+# Find the bootstrapped proportions mean
+boot_mean <- boot_tidy %>% 
+  mutate(mean = mean(boot_100k$t))
+```
+
+Bootstrapping analysis using 100,000 bootstrapped samples suggest that an average of `r round(boot_mean[4]*100,2)`% nonbinar/genderqueer students answered that they had experienced "exclusionary, offensive, hostile, or intimidating conduct", with a confidence interval of [0.44, 0.78]. The analysis had a bias of `r format(as.character(round(boot_mean[2],4)))` and a standard error of `r round(boot_mean[3],3)`.
+
+```{r}
+boot_mean %>% 
+  gt() %>% 
+  fmt_number(
+    columns = vars(bias),
+    decimals = 4
+  ) %>% 
+  fmt_number(
+    columns = vars(std.error),
+    decimals = 3
+  ) %>% 
+  fmt_percent(
+    columns = vars(statistic, mean),
+    decimals = 2
+  ) %>% 
+  tab_header(
+    title = "Results of Bootstrap Analysis"
+  ) %>% 
+  cols_label(
+    statistic = "Statistic",
+    std.error = "Standard Error",
+    mean = "Bootstrap Mean",
+    bias = "Bias"
+  ) %>% 
+  tab_options(
+    table.width = pct(50)
+  )
+
+ci
+```
+
+## Citation:
+[Rankin & Associates Consulting. "UCSB Campus Climate Project Final Report." 2014.](https://campusclimate.ucop.edu/_common/files/pdf-climate/ucsb-full-report.pdf)
+
+
+
+
